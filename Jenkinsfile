@@ -1,19 +1,28 @@
-// 最小可运行 Declarative Pipeline（不依赖 Docker/AnsiColor 插件）
 pipeline {
   agent any
-  options { timestamps() }     // 先别用 ansiColor
+  options { timestamps() }
   stages {
-    stage('Checkout') {
-      steps { checkout scm }
-    }
-    stage('Build') {
+    stage('Checkout'){ steps { checkout scm } }
+    stage('Setup venv') {
       steps {
         sh '''
-          echo "Hello from Jenkins on $(uname -a)"
-          # 在构建节点的系统 Python/工具中运行你的命令
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install "numpy<2" pytest playwright
+          playwright install --with-deps
+        '''
+      }
+    }
+    stage('Test') {
+      steps {
+        sh '''
+          . .venv/bin/activate
+          pytest -s -v
         '''
       }
     }
   }
+  post { always { archiveArtifacts artifacts: '**/test-results*/**/*, **/playwright-report/**', fingerprint: true } }
 }
 
